@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bell Schedule + Clock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f172a;
+    --bar: #111c33;
+    --ink: #f8fafc;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --line: #1e293b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: Inter, system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ---------- Clock bar ---------- */
+  .clockbar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2vw;
+    padding: 1.6vh 3vw;
+    background: var(--bar);
+    border-bottom: 1px solid var(--line);
+  }
+  .now { display: flex; align-items: baseline; gap: 1.2vw; }
+  .label {
+    font-size: clamp(12px, 1.3vw, 22px);
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .time {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-weight: 700;
+    font-size: clamp(40px, 9vh, 140px);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.02em;
+  }
+  .time .sec { color: var(--muted); font-size: .5em; margin-left: .15em; }
+  .time .ampm { color: var(--accent); font-size: .38em; margin-left: .3em; letter-spacing: .05em; }
+  .date {
+    font-size: clamp(16px, 2.6vh, 40px);
+    color: var(--muted);
+    text-align: right;
+    line-height: 1.3;
+  }
+  .date strong { color: var(--ink); font-weight: 600; display: block; }
+  .controls { display: flex; gap: 8px; margin-top: 6px; justify-content: flex-end; }
+  .controls button {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font: 600 13px Inter, sans-serif;
+    cursor: pointer;
+  }
+  .controls button:hover { color: var(--ink); border-color: var(--muted); }
+
+  /* ---------- Countdown area ---------- */
+  .stage { flex: 1 1 auto; position: relative; }
+  .stage iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; }
+
+  /* Demo stand-in (shown only in preview, where the live site can't be embedded) */
+  .demo {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: #fff; color: #111;
+    text-align: center; gap: 1.5vh;
+  }
+  .demo .period { font-size: clamp(22px, 4.5vh, 64px); font-weight: 600; }
+  .demo .count {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-weight: 700; font-size: clamp(80px, 26vh, 360px); line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .demo .next { font-size: clamp(16px, 2.6vh, 36px); color: #555; }
+  .demo .tag {
+    position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+    font-size: 13px; color: #777; background: #f1f5f9; padding: 6px 12px; border-radius: 999px;
+  }
+
+  /* Compact mode: smaller clock bar */
+  body.compact .clockbar { padding: .8vh 2vw; }
+  body.compact .time { font-size: clamp(28px, 5.5vh, 80px); }
+  body.compact .date { font-size: clamp(13px, 1.8vh, 26px); }
+</style>
+</head>
+<body>
+  <header class="clockbar">
+    <div class="now">
+      <span class="label">Time</span>
+      <div class="time" id="time" aria-live="off">--:--</div>
+    </div>
+    <div>
+      <div class="date" id="date"></div>
+      <div class="controls">
+        <button id="secBtn" type="button">Hide seconds</button>
+        <button id="sizeBtn" type="button">Smaller clock</button>
+        <button id="fsBtn" type="button">Full screen</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="stage" id="stage"></main>
+
+<script>
+  // ===== Settings =====
+  const BELL_URL = "https://bell.plus/128944"; // your existing schedule link
+  const DEMO = false; // true = show a sample countdown instead of loading bell.plus
+
+  // ===== Clock =====
+  const timeEl = document.getElementById("time");
+  const dateEl = document.getElementById("date");
+  let showSeconds = true;
+
+  function pad(n) { return String(n).padStart(2, "0"); }
+
+  function tick() {
+    const d = new Date();
+    let h = d.getHours();
+    const ampm = h >= 12 ? "PM" : "AM";
+    h = h % 12 || 12;
+    timeEl.innerHTML =
+      h + ":" + pad(d.getMinutes()) +
+      (showSeconds ? '<span class="sec">:' + pad(d.getSeconds()) + "</span>" : "") +
+      '<span class="ampm">' + ampm + "</span>";
+    dateEl.innerHTML =
+      "<strong>" + d.toLocaleDateString(undefined, { weekday: "long" }) + "</strong>" +
+      d.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
+    if (DEMO) demoTick(d);
+  }
+
+  // ===== Controls =====
+  try { showSeconds = localStorage.getItem("bc-sec") !== "0"; } catch (e) {}
+  try { if (localStorage.getItem("bc-compact") === "1") document.body.classList.add("compact"); } catch (e) {}
+
+  const secBtn = document.getElementById("secBtn");
+  const sizeBtn = document.getElementById("sizeBtn");
+  function syncLabels() {
+    secBtn.textContent = showSeconds ? "Hide seconds" : "Show seconds";
+    sizeBtn.textContent = document.body.classList.contains("compact") ? "Larger clock" : "Smaller clock";
+  }
+  secBtn.onclick = () => {
+    showSeconds = !showSeconds;
+    try { localStorage.setItem("bc-sec", showSeconds ? "1" : "0"); } catch (e) {}
+    syncLabels(); tick();
+  };
+  sizeBtn.onclick = () => {
+    const c = document.body.classList.toggle("compact");
+    try { localStorage.setItem("bc-compact", c ? "1" : "0"); } catch (e) {}
+    syncLabels();
+  };
+  document.getElementById("fsBtn").onclick = async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.documentElement.requestFullscreen();
+    } catch (e) { /* fullscreen not allowed here */ }
+  };
+  syncLabels();
+
+  // ===== Countdown area =====
+  const stage = document.getElementById("stage");
+  let demoEls = null;
+
+  if (DEMO) {
+    stage.innerHTML =
+      '<div class="demo">' +
+        '<div class="period" id="dPeriod">Period 3</div>' +
+        '<div class="count" id="dCount">--:--</div>' +
+        '<div class="next" id="dNext"></div>' +
+        '<div class="tag">Sample countdown. The hosted page loads your live bell.plus schedule here.</div>' +
+      "</div>";
+    demoEls = {
+      period: document.getElementById("dPeriod"),
+      count: document.getElementById("dCount"),
+      next: document.getElementById("dNext"),
+    };
+  } else {
+    const f = document.createElement("iframe");
+    f.src = BELL_URL;
+    f.title = "Bell schedule countdown";
+    f.allow = "autoplay; fullscreen";
+    stage.appendChild(f);
+  }
+
+  // Sample: a 50-minute period that resets on the hour boundaries, for preview only
+  function demoTick(d) {
+    const periodLen = 50 * 60;
+    const secsToday = d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds();
+    const left = periodLen - (secsToday % periodLen);
+    demoEls.count.textContent = Math.floor(left / 60) + ":" + pad(left % 60);
+    const end = new Date(d.getTime() + left * 1000);
+    let eh = end.getHours() % 12 || 12;
+    demoEls.next.textContent = "Bell rings at " + eh + ":" + pad(end.getMinutes());
+  }
+
+  tick();
+  setInterval(tick, 1000);
+</script>
+</body>
+</html>
