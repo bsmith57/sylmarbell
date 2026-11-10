@@ -6,7 +6,7 @@
 <title>Bell Schedule + Clock</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #0f172a;
@@ -15,6 +15,10 @@
     --muted: #94a3b8;
     --accent: #38bdf8;
     --line: #1e293b;
+    --menu: #1a2540;
+    --ticker-bg: #0b1324;
+    --ticker-tag: #ffffff;
+    --ticker-tag-ink: #0f172a;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
@@ -27,6 +31,15 @@
     overflow: hidden;
   }
 
+  /* ---------- Layout order ----------
+     Default:  clock (top)  · countdown · ticker (bottom)
+     .bottom:  ticker (top) · countdown · clock (bottom) */
+  .topgroup { order: 0; flex: 0 0 auto; display: flex; flex-direction: column; }
+  .stage    { order: 1; }
+  .ticker   { order: 2; }
+  body.bottom .topgroup { order: 2; flex-direction: column-reverse; }  /* period bar sits just above the clock */
+  body.bottom .ticker   { order: 0; }
+
   /* ---------- Clock bar ---------- */
   .clockbar {
     flex: 0 0 auto;
@@ -38,6 +51,8 @@
     background: var(--bar);
     border-bottom: 1px solid var(--line);
   }
+  body.bottom .clockbar { border-bottom: 0; border-top: 1px solid var(--line); }
+
   .now { display: flex; align-items: baseline; gap: 1.2vw; }
   .label {
     font-size: clamp(12px, 1.3vw, 22px);
@@ -56,6 +71,8 @@
   }
   .time .sec { color: var(--muted); font-size: .5em; margin-left: .15em; }
   .time .ampm { color: var(--accent); font-size: .38em; margin-left: .3em; letter-spacing: .05em; }
+
+  .right { display: flex; align-items: center; gap: 2vw; }
   .date {
     font-size: clamp(16px, 2.6vh, 40px);
     color: var(--muted);
@@ -63,23 +80,58 @@
     line-height: 1.3;
   }
   .date strong { color: var(--ink); font-weight: 600; display: block; }
-  .controls { display: flex; gap: 8px; margin-top: 6px; justify-content: flex-end; }
-  .controls button {
+
+  /* ---------- Options menu ---------- */
+  .options { position: relative; }
+  .options-btn {
     background: transparent;
     color: var(--muted);
     border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 6px 12px;
-    font: 600 13px Inter, sans-serif;
+    border-radius: 10px;
+    padding: 8px 14px;
+    font: 600 14px Inter, sans-serif;
     cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
   }
-  .controls button:hover { color: var(--ink); border-color: var(--muted); }
+  .options-btn:hover, .options-btn[aria-expanded="true"] { color: var(--ink); border-color: var(--muted); }
+  .options-btn .caret { font-size: 10px; transition: transform .15s; }
+  .options-btn[aria-expanded="true"] .caret { transform: rotate(180deg); }
+
+  .menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    min-width: 240px;
+    background: var(--menu);
+    border: 1px solid #2b3a5c;
+    border-radius: 12px;
+    padding: 6px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.45);
+    z-index: 20;
+    display: none;
+  }
+  .menu.open { display: block; }
+  body.bottom .menu { top: auto; bottom: calc(100% + 8px); }
+
+  .menu button {
+    width: 100%;
+    display: flex; justify-content: space-between; align-items: center; gap: 16px;
+    background: transparent; border: 0; border-radius: 8px;
+    color: var(--ink);
+    font: 500 15px Inter, sans-serif;
+    padding: 11px 12px;
+    cursor: pointer;
+    text-align: left;
+  }
+  .menu button:hover, .menu button:focus-visible { background: rgba(255,255,255,.07); outline: none; }
+  .menu .state { color: var(--muted); font-size: 13px; font-weight: 600; }
+  .menu hr { border: 0; border-top: 1px solid #2b3a5c; margin: 4px 6px; }
 
   /* ---------- Countdown area ---------- */
   .stage { flex: 1 1 auto; position: relative; }
   .stage iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; }
 
-  /* Demo stand-in (shown only in preview, where the live site can't be embedded) */
+  /* Demo stand-in (preview only) */
   .demo {
     position: absolute; inset: 0;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -89,49 +141,221 @@
   .demo .period { font-size: clamp(22px, 4.5vh, 64px); font-weight: 600; }
   .demo .count {
     font-family: "JetBrains Mono", ui-monospace, monospace;
-    font-weight: 700; font-size: clamp(80px, 26vh, 360px); line-height: 1;
+    font-weight: 700; font-size: clamp(80px, 24vh, 340px); line-height: 1;
     font-variant-numeric: tabular-nums;
   }
   .demo .next { font-size: clamp(16px, 2.6vh, 36px); color: #555; }
   .demo .tag {
     position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
     font-size: 13px; color: #777; background: #f1f5f9; padding: 6px 12px; border-radius: 999px;
+    white-space: nowrap;
   }
 
-  /* Compact mode: smaller clock bar */
+  /* ---------- Announcement ticker ---------- */
+  .ticker {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: stretch;
+    background: var(--ticker-bg);
+    border-top: 1px solid var(--line);
+    height: clamp(44px, 7vh, 96px);
+    overflow: hidden;
+  }
+  body.bottom .ticker { border-top: 0; border-bottom: 1px solid var(--line); }
+  body.no-ticker .ticker, .ticker.empty { display: none; }
+
+  .ticker-tag {
+    flex: 0 0 auto;
+    display: flex; align-items: center;
+    padding: 0 2vw;
+    background: var(--ticker-tag);
+    color: var(--ticker-tag-ink);
+    font-weight: 700;
+    font-size: clamp(13px, 2vh, 26px);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    position: relative;
+    z-index: 2;
+  }
+  .ticker-tag::after {   /* angled edge */
+    content: "";
+    position: absolute; left: calc(100% - 2px); top: 0; bottom: 0; width: 20px;  /* overlaps the box by 2px so no seam shows */
+    background: var(--ticker-tag);
+    clip-path: polygon(0 0, 100% 50%, 0 100%);
+  }
+  .ticker-track {
+    flex: 1 1 auto;
+    position: relative;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
+            mask-image: linear-gradient(90deg, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
+  }
+  .ticker-run {
+    position: absolute; top: 0; bottom: 0; left: 0;
+    display: flex; align-items: center;
+    white-space: nowrap;
+    will-change: transform;
+    animation: scroll linear infinite;
+    padding-left: 30px;
+  }
+  .ticker:hover .ticker-run { animation-play-state: paused; }
+  @keyframes scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+  .item {
+    display: inline-flex; align-items: center; gap: .6em;
+    font-size: clamp(18px, 3.4vh, 46px);
+    font-weight: 500;
+    padding-right: 1.4em;
+  }
+  .item::after {          /* separator */
+    content: "\2022";
+    color: var(--accent);
+    margin-left: 1.4em;
+  }
+  .badge {
+    font-size: .5em; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    padding: .35em .7em; border-radius: 999px;
+    background: rgba(255,255,255,.1); color: var(--muted);
+  }
+  .badge.icon {
+    background: rgba(255,255,255,.12);
+    font-size: .8em; letter-spacing: 0;
+    padding: .12em .35em;
+    line-height: 1.2;
+  }
+  .badge.ig {
+    background: linear-gradient(45deg, #f58529, #dd2a7b 50%, #8134af);
+    color: #fff;
+  }
+
+  /* ---------- Period bar ---------- */
+  .periods {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    background: #ffffff;
+    border-bottom: 2px solid var(--bar);
+  }
+  body.bottom .periods { border-bottom: 0; border-top: 2px solid var(--bar); }
+  body.no-periods .periods, .periods:empty { display: none; }
+  .pbox {
+    display: flex; align-items: center; justify-content: center; gap: .45em;
+    padding: .55vh .6vw;
+    min-height: clamp(34px, 5.2vh, 70px);
+    color: var(--bar);
+    font-size: clamp(14px, 2.7vh, 38px);
+    font-variant-numeric: tabular-nums;
+    border-left: 1px solid #cbd5e1;
+    white-space: nowrap;
+    position: relative;
+  }
+  .pbox:first-child { border-left: 0; }
+  .pbox .pl { font-weight: 700; }
+  .pbox .pt { font-weight: 500; }
+  .pbox.past { color: #94a3b8; }
+  .pbox.now  { background: #9ca3af; color: #0b1324; }
+  .pbox.now .pt { font-weight: 700; }
+  .pbox.next { box-shadow: inset 0 0 0 3px #9ca3af; }   /* during passing period: outline the upcoming class */
+
+  /* ---------- Smaller clock ---------- */
   body.compact .clockbar { padding: .8vh 2vw; }
   body.compact .time { font-size: clamp(28px, 5.5vh, 80px); }
   body.compact .date { font-size: clamp(13px, 1.8vh, 26px); }
+  body.compact .pbox { font-size: clamp(12px, 2vh, 28px); min-height: clamp(28px, 4vh, 54px); }
+
+  @media (prefers-reduced-motion: reduce) { .ticker-run { animation-duration: 0s !important; } }
 </style>
 </head>
 <body>
+  <div class="topgroup">
   <header class="clockbar">
     <div class="now">
       <span class="label">Time</span>
       <div class="time" id="time" aria-live="off">--:--</div>
     </div>
-    <div>
+    <div class="right">
       <div class="date" id="date"></div>
-      <div class="controls">
-        <button id="secBtn" type="button">Hide seconds</button>
-        <button id="sizeBtn" type="button">Smaller clock</button>
-        <button id="fsBtn" type="button">Full screen</button>
+      <div class="options">
+        <button class="options-btn" id="optBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="menu">
+          Options <span class="caret">&#9660;</span>
+        </button>
+        <div class="menu" id="menu" role="menu">
+          <button type="button" role="menuitem" id="mSec"><span>Seconds</span><span class="state" id="sSec"></span></button>
+          <button type="button" role="menuitem" id="mSize"><span>Clock size</span><span class="state" id="sSize"></span></button>
+          <button type="button" role="menuitem" id="mPos"><span>Clock position</span><span class="state" id="sPos"></span></button>
+          <button type="button" role="menuitem" id="mPer"><span>Period bar</span><span class="state" id="sPer"></span></button>
+          <button type="button" role="menuitem" id="mTick"><span>Announcements</span><span class="state" id="sTick"></span></button>
+          <hr>
+          <button type="button" role="menuitem" id="mFs"><span id="fsLabel">Full screen</span><span class="state">&#x26F6;</span></button>
+        </div>
       </div>
     </div>
   </header>
+  <nav class="periods" id="periods" aria-label="Today's periods"></nav>
+  </div>
 
   <main class="stage" id="stage"></main>
 
-<script>
-  // ===== Settings =====
-  const BELL_URL = "https://bell.plus/128944"; // your existing schedule link
-  const DEMO = false; // true = show a sample countdown instead of loading bell.plus
+  <aside class="ticker empty" id="ticker" aria-label="School announcements">
+    <div class="ticker-tag">Announcements</div>
+    <div class="ticker-track"><div class="ticker-run" id="tickerRun"></div></div>
+  </aside>
 
-  // ===== Clock =====
+<script>
+  // ================= Settings =================
+  const BELL_URL = "https://bell.plus/128944";   // your existing schedule link
+  const DEMO = false;                             // true = sample countdown instead of bell.plus
+
+  // ---- Announcements source: Google Sheet ----
+  // Main method: the sheet's ID (from its normal edit link, between /d/ and /edit).
+  // The sheet must be shared as "Anyone with the link: Viewer".
+  // Columns (row 1 = headers): Message | Start | End | Source   (other columns are ignored)
+  //   Start/End are optional dates (e.g. 11/10/2026). Blank = always show.
+  //   Source is optional: "Instagram" shows an Instagram badge; any other text shows as a plain tag.
+  const ANNOUNCEMENTS_SHEET_ID  = "1fRcjbYjvQydBcxvd7os7pUPWeQizvl9rFDiYXWisyf0";
+  const ANNOUNCEMENTS_TAB       = "Announcements";
+  // Backup method: the "Publish to web" CSV link. Used only if the main method fails.
+  const ANNOUNCEMENTS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT1hrMY_2-nZDdBvF3fWbEsynpW_tFnm7FR7g6rAHfoyRryAKprVC9-KlMjpIBG6LcNg5gkf_E1Sf8G/pub?gid=0&single=true&output=csv";
+  // Leave both blank to use the sample announcements below.
+  const REFRESH_MINUTES = 5;     // how often to re-check the sheet
+  const TICKER_SPEED = 90;       // pixels per second
+
+  // ---- Period bar ----
+  // Today's periods come from the "Bell Periods" tab of the same Google Sheet.
+  // A script in the sheet copies them from bell.plus/128944 every 30 minutes.
+  const PERIODS_TAB = "Bell Periods";
+  // Used only if PERIODS_TAB is blank: fixed periods in 24-hour time ("13:20" = 1:20 PM).
+  const PERIODS = [
+    { label: "P1", start: "8:30",  end: "9:15"  },
+    { label: "P2", start: "9:22",  end: "10:07" },
+    { label: "P3", start: "10:14", end: "10:59" },
+    { label: "P4", start: "11:06", end: "11:51" },
+    { label: "P5", start: "12:28", end: "13:13" },
+    { label: "P6", start: "13:20", end: "14:05" }
+  ];
+
+  // Sources shown as an emoji instead of a text tag (Source column, any capitalization)
+  const SOURCE_ICONS = { "magnet": "\u{1F9F2}", "office": "\u{1F3EB}" };   // 🧲 🏫
+
+  const SAMPLE_ANNOUNCEMENTS = [
+    { message: "Spartan Spirit Week starts Monday: Pajama Day kicks it off!", source: "ASB" },
+    { message: "Senior portraits retakes are this Thursday in the library, periods 1–4.", source: "" },
+    { message: "Congrats to Girls Volleyball on their league semifinal win! 🏐", source: "Instagram" },
+    { message: "Winter Formal tickets on sale at the student store through Dec 5.", source: "Instagram" },
+    { message: "Minimum day Wednesday: dismissal at 12:39 PM.", source: "Office" },
+    { message: "Canned food drive: drop donations in Room 214 by Friday.", source: "ASB" },
+    { message: "Magnet program info night is Thursday at 6 PM in the library.", source: "Magnet" }
+  ];
+
+  // ================= Saved preferences (per browser) =================
+  // Defaults: seconds shown, larger clock, clock at top, announcements on
+  const prefs = { sec: true, compact: false, bottom: false, ticker: true, periods: true };
+  try { Object.assign(prefs, JSON.parse(localStorage.getItem("bc-prefs") || "{}")); } catch (e) {}
+  function save() { try { localStorage.setItem("bc-prefs", JSON.stringify(prefs)); } catch (e) {} }
+
+  // ================= Clock =================
   const timeEl = document.getElementById("time");
   const dateEl = document.getElementById("date");
-  let showSeconds = true;
-
   function pad(n) { return String(n).padStart(2, "0"); }
 
   function tick() {
@@ -141,43 +365,57 @@
     h = h % 12 || 12;
     timeEl.innerHTML =
       h + ":" + pad(d.getMinutes()) +
-      (showSeconds ? '<span class="sec">:' + pad(d.getSeconds()) + "</span>" : "") +
+      (prefs.sec ? '<span class="sec">:' + pad(d.getSeconds()) + "</span>" : "") +
       '<span class="ampm">' + ampm + "</span>";
     dateEl.innerHTML =
       "<strong>" + d.toLocaleDateString(undefined, { weekday: "long" }) + "</strong>" +
       d.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
+    updatePeriods(d);
     if (DEMO) demoTick(d);
   }
 
-  // ===== Controls =====
-  try { showSeconds = localStorage.getItem("bc-sec") !== "0"; } catch (e) {}
-  try { if (localStorage.getItem("bc-compact") === "1") document.body.classList.add("compact"); } catch (e) {}
+  // ================= Options menu =================
+  const optBtn = document.getElementById("optBtn");
+  const menu = document.getElementById("menu");
 
-  const secBtn = document.getElementById("secBtn");
-  const sizeBtn = document.getElementById("sizeBtn");
-  function syncLabels() {
-    secBtn.textContent = showSeconds ? "Hide seconds" : "Show seconds";
-    sizeBtn.textContent = document.body.classList.contains("compact") ? "Larger clock" : "Smaller clock";
+  function apply() {
+    document.body.classList.toggle("compact", prefs.compact);
+    document.body.classList.toggle("bottom", prefs.bottom);
+    document.body.classList.toggle("no-ticker", !prefs.ticker);
+    document.getElementById("sSec").textContent  = prefs.sec ? "Shown" : "Hidden";
+    document.getElementById("sSize").textContent = prefs.compact ? "Smaller" : "Larger";
+    document.getElementById("sPos").textContent  = prefs.bottom ? "Bottom" : "Top";
+    document.getElementById("sTick").textContent = prefs.ticker ? "On" : "Off";
+    document.body.classList.toggle("no-periods", !prefs.periods);
+    document.getElementById("sPer").textContent = prefs.periods ? "On" : "Off";
+    document.getElementById("fsLabel").textContent = document.fullscreenElement ? "Exit full screen" : "Full screen";
+    tick();
   }
-  secBtn.onclick = () => {
-    showSeconds = !showSeconds;
-    try { localStorage.setItem("bc-sec", showSeconds ? "1" : "0"); } catch (e) {}
-    syncLabels(); tick();
-  };
-  sizeBtn.onclick = () => {
-    const c = document.body.classList.toggle("compact");
-    try { localStorage.setItem("bc-compact", c ? "1" : "0"); } catch (e) {}
-    syncLabels();
-  };
-  document.getElementById("fsBtn").onclick = async () => {
+
+  function setMenu(open) {
+    menu.classList.toggle("open", open);
+    optBtn.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  optBtn.addEventListener("click", (e) => { e.stopPropagation(); setMenu(!menu.classList.contains("open")); });
+  menu.addEventListener("click", (e) => e.stopPropagation());
+  document.addEventListener("click", () => setMenu(false));
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") setMenu(false); });
+
+  document.getElementById("mSec").onclick  = () => { prefs.sec = !prefs.sec; save(); apply(); };
+  document.getElementById("mSize").onclick = () => { prefs.compact = !prefs.compact; save(); apply(); };
+  document.getElementById("mPos").onclick  = () => { prefs.bottom = !prefs.bottom; save(); apply(); };
+  document.getElementById("mPer").onclick = () => { prefs.periods = !prefs.periods; save(); apply(); };
+  document.getElementById("mTick").onclick = () => { prefs.ticker = !prefs.ticker; save(); apply(); if (prefs.ticker) renderTicker(); };
+  document.getElementById("mFs").onclick = async () => {
+    setMenu(false);
     try {
       if (document.fullscreenElement) await document.exitFullscreen();
       else await document.documentElement.requestFullscreen();
-    } catch (e) { /* fullscreen not allowed here */ }
+    } catch (e) { /* full screen not allowed here */ }
   };
-  syncLabels();
+  document.addEventListener("fullscreenchange", apply);
 
-  // ===== Countdown area =====
+  // ================= Countdown area =================
   const stage = document.getElementById("stage");
   let demoEls = null;
 
@@ -189,11 +427,7 @@
         '<div class="next" id="dNext"></div>' +
         '<div class="tag">Sample countdown. The hosted page loads your live bell.plus schedule here.</div>' +
       "</div>";
-    demoEls = {
-      period: document.getElementById("dPeriod"),
-      count: document.getElementById("dCount"),
-      next: document.getElementById("dNext"),
-    };
+    demoEls = { period: document.getElementById("dPeriod"), count: document.getElementById("dCount"), next: document.getElementById("dNext") };
   } else {
     const f = document.createElement("iframe");
     f.src = BELL_URL;
@@ -202,19 +436,260 @@
     stage.appendChild(f);
   }
 
-  // Sample: a 50-minute period that resets on the hour boundaries, for preview only
-  function demoTick(d) {
-    const periodLen = 50 * 60;
-    const secsToday = d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds();
-    const left = periodLen - (secsToday % periodLen);
+  function demoTick(d) {   // sample only: counts down to the end of the current period in the list
+    const t = d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
+    const st = periodState(t);
+    const target = st.now != null ? periodList[st.now] : (st.next != null ? periodList[st.next] : null);
+    if (!target) { demoEls.period.textContent = "No class"; demoEls.count.textContent = "--:--"; demoEls.next.textContent = ""; return; }
+    const endMin = st.now != null ? target.e : target.s;
+    const left = Math.max(0, Math.round((endMin - t) * 60));
+    demoEls.period.textContent = st.now != null ? "Period " + target.label.replace(/^P/, "") : "Passing period";
     demoEls.count.textContent = Math.floor(left / 60) + ":" + pad(left % 60);
-    const end = new Date(d.getTime() + left * 1000);
-    let eh = end.getHours() % 12 || 12;
-    demoEls.next.textContent = "Bell rings at " + eh + ":" + pad(end.getMinutes());
+    demoEls.next.textContent = "Bell rings at " + fmt12(endMin);
   }
 
-  tick();
+  // ================= Period bar =================
+  const periodsEl = document.getElementById("periods");
+  let periodList = [];      // [{label, s, e}] with s/e in minutes after midnight
+  let lastPeriodKey = "";
+
+  function toMin(str) {
+    const m = String(str).trim().match(/^(\d{1,2}):(\d{2})\s*([ap]m?)?$/i);
+    if (!m) return NaN;
+    let h = +m[1]; const min = +m[2]; const ap = (m[3] || "").toLowerCase();
+    if (ap.startsWith("p") && h < 12) h += 12;
+    if (ap.startsWith("a") && h === 12) h = 0;
+    return h * 60 + min;
+  }
+  function fmt12(min) {
+    min = ((Math.round(min) % 1440) + 1440) % 1440;
+    const h = Math.floor(min / 60), m = min % 60;
+    return (h % 12 || 12) + ":" + pad(m);
+  }
+
+  function setPeriods(list) {
+    periodList = list
+      .map(p => ({ label: p.label, s: typeof p.s === "number" ? p.s : toMin(p.start), e: typeof p.e === "number" ? p.e : toMin(p.end) }))
+      .filter(p => p.label && !isNaN(p.s) && !isNaN(p.e));
+    periodsEl.innerHTML = periodList.map((p, i) =>
+      '<div class="pbox" data-i="' + i + '"><span class="pl">' + esc(p.label) + '</span><span class="pt">' +
+      fmt12(p.s) + "\u2013" + fmt12(p.e) + "</span></div>").join("");
+    lastPeriodKey = "";
+  }
+
+  // Which period is on now, and which is next (only during a passing period)
+  function periodState(t) {
+    let now = null, next = null;
+    for (let i = 0; i < periodList.length; i++) {
+      if (t >= periodList[i].s && t < periodList[i].e) { now = i; break; }
+    }
+    if (now === null && periodList.length && t >= periodList[0].s && t < periodList[periodList.length - 1].e) {
+      next = periodList.findIndex(p => p.s > t);
+      if (next < 0) next = null;
+    }
+    return { now, next };
+  }
+
+  function updatePeriods(d) {
+    if (!periodList.length) return;
+    const t = d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
+    const st = periodState(t);
+    const key = st.now + "|" + st.next + "|" + periodList.filter(p => t >= p.e).length;
+    if (key === lastPeriodKey) return;
+    lastPeriodKey = key;
+    periodsEl.querySelectorAll(".pbox").forEach((el, i) => {
+      el.classList.toggle("now", i === st.now);
+      el.classList.toggle("next", i === st.next);
+      el.classList.toggle("past", t >= periodList[i].e && i !== st.now);
+    });
+  }
+
+  if (DEMO) {
+    // Preview only: shift the sample times so the current time falls inside P3
+    const d = new Date();
+    const t = d.getHours() * 60 + d.getMinutes();
+    const len = 45, gap = 7, p3start = t - 20;
+    setPeriods(["P1","P2","P3","P4","P5","P6"].map((label, i) => {
+      const s = p3start + (i - 2) * (len + gap);
+      return { label, s, e: s + len };
+    }));
+  } else {
+    if (!PERIODS_TAB || !ANNOUNCEMENTS_SHEET_ID) setPeriods(PERIODS);
+  }
+
+  // ================= Announcement ticker =================
+  const tickerEl = document.getElementById("ticker");
+  const runEl = document.getElementById("tickerRun");
+  let announcements = [];
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  // Minimal CSV parser (handles quoted fields, commas and line breaks inside quotes)
+  function parseCSV(text) {
+    const rows = []; let row = [], field = "", q = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (q) {
+        if (c === '"' && text[i + 1] === '"') { field += '"'; i++; }
+        else if (c === '"') q = false;
+        else field += c;
+      } else if (c === '"') q = true;
+      else if (c === ",") { row.push(field); field = ""; }
+      else if (c === "\n" || c === "\r") {
+        if (c === "\r" && text[i + 1] === "\n") i++;
+        row.push(field); rows.push(row); row = []; field = "";
+      } else field += c;
+    }
+    if (field !== "" || row.length) { row.push(field); rows.push(row); }
+    return rows;
+  }
+
+  function activeToday(start, end) {
+    const now = new Date();
+    if (start) { const s = new Date(start); if (!isNaN(s) && now < s) return false; }
+    if (end)   { const e = new Date(end);   if (!isNaN(e)) { e.setHours(23, 59, 59, 999); if (now > e) return false; } }
+    return true;
+  }
+
+  function rowsToAnnouncements(rows) {
+    if (!rows.length) return [];
+    const head = rows[0].map(h => h.trim().toLowerCase());
+    const col = (name, fallback) => { const i = head.indexOf(name); return i >= 0 ? i : fallback; };
+    const iMsg = col("message", 0), iStart = col("start", 1), iEnd = col("end", 2), iSrc = col("source", 3);
+    return rows.slice(1)
+      .map(r => ({ message: (r[iMsg] || "").trim(), start: (r[iStart] || "").trim(), end: (r[iEnd] || "").trim(), source: (r[iSrc] || "").trim() }))
+      .filter(a => a.message && activeToday(a.start, a.end));
+  }
+
+  function itemHTML(a) {
+    let badge = "";
+    const icon = SOURCE_ICONS[(a.source || "").trim().toLowerCase()];
+    if (/instagram/i.test(a.source)) badge = '<span class="badge ig">Instagram</span>';
+    else if (icon) badge = '<span class="badge icon" role="img" aria-label="' + esc(a.source) + '" title="' + esc(a.source) + '">' + icon + "</span>";
+    else if (a.source) badge = '<span class="badge">' + esc(a.source) + "</span>";
+    return '<span class="item">' + badge + "<span>" + esc(a.message) + "</span></span>";
+  }
+
+  function renderTicker() {
+    if (!announcements.length) { tickerEl.classList.add("empty"); runEl.innerHTML = ""; return; }
+    tickerEl.classList.remove("empty");
+    if (!prefs.ticker) return;
+
+    // Build one "set", repeat it until it's wider than the track, then double it for a seamless loop
+    const one = announcements.map(itemHTML).join("");
+    runEl.style.animation = "none";
+    runEl.innerHTML = one;
+    const trackW = runEl.parentElement.clientWidth || window.innerWidth;
+    let set = one, guard = 0;
+    while (runEl.scrollWidth < trackW && guard++ < 20) { set += one; runEl.innerHTML = set; }
+    runEl.innerHTML = set + set;
+    const distance = runEl.scrollWidth / 2;
+    runEl.style.animation = "";
+    runEl.style.animationDuration = Math.max(10, distance / TICKER_SPEED) + "s";
+  }
+
+  // Main method: load the sheet through Google's chart-data service with a <script> tag.
+  // Script tags aren't subject to the cross-site blocking that stops fetch() on published CSVs.
+  let gvizCount = 0;
+  function loadViaSheetScript() {
+    return loadSheetTab(ANNOUNCEMENTS_TAB).then(rowsToAnnouncements);
+  }
+
+  // Loads one tab of the sheet; resolves to [headerRow, ...rows] as text
+  function loadSheetTab(tabName) {
+    return new Promise((resolve, reject) => {
+      const cb = "__bellSheetCb" + (++gvizCount);
+      const s = document.createElement("script");
+      const timer = setTimeout(() => { cleanup(); reject(new Error("Timed out loading the sheet")); }, 15000);
+      function cleanup() { clearTimeout(timer); delete window[cb]; s.remove(); }
+      window[cb] = (resp) => {
+        cleanup();
+        if (!resp || resp.status === "error") {
+          const msg = resp && resp.errors && resp.errors[0] ? (resp.errors[0].detailed_message || resp.errors[0].message) : "unknown error";
+          return reject(new Error("Sheet error: " + msg));
+        }
+        const t = resp.table;
+        const header = t.cols.map(c => (c.label || "").trim());
+        const rows = (t.rows || []).map(r => (r.c || []).map(cell => {
+          if (!cell) return "";
+          if (cell.f != null) return String(cell.f);   // formatted value (e.g. 11/13/2026)
+          return cell.v == null ? "" : String(cell.v);
+        }));
+        resolve([header, ...rows]);
+      };
+      s.onerror = () => { cleanup(); reject(new Error("Sheet could not be reached (check sharing: Anyone with the link can view)")); };
+      s.src = "https://docs.google.com/spreadsheets/d/" + encodeURIComponent(ANNOUNCEMENTS_SHEET_ID) +
+              "/gviz/tq?headers=1&sheet=" + encodeURIComponent(tabName) +
+              "&tqx=responseHandler:" + cb + "&t=" + Date.now();
+      document.head.appendChild(s);
+    });
+  }
+
+  // ---- Period bar from the "Bell Periods" tab ----
+  let periodsKey = null;
+  async function loadPeriodsFromSheet() {
+    try {
+      const [header, ...rows] = await loadSheetTab(PERIODS_TAB);
+      const h = header.map(x => x.toLowerCase());
+      const iDate = h.indexOf("date"), iLabel = h.indexOf("label"), iStart = h.indexOf("start"), iEnd = h.indexOf("end"), iSched = h.indexOf("schedule");
+      const d = new Date();
+      const todayKey = pad(d.getMonth() + 1) + "/" + pad(d.getDate()) + "/" + d.getFullYear();
+      // Only use rows written for today, so a stopped script never shows yesterday's periods
+      const list = rows
+        .filter(r => (r[iDate] || "").trim() === todayKey && (r[iLabel] || "").trim())
+        .map(r => ({ label: r[iLabel].trim(), start: r[iStart], end: r[iEnd] }));
+      const key = JSON.stringify(list);
+      if (key !== periodsKey) { periodsKey = key; setPeriods(list); }
+      const sched = rows.length && iSched >= 0 ? rows[0][iSched] : "";
+      console.info("Periods loaded:", list.length, sched ? "(" + sched + ")" : "", rows.length && rows[0][iDate] !== todayKey ? "- sheet is not updated for today yet" : "");
+    } catch (e) {
+      console.warn("Periods could not be loaded:", e.message);   // keep the last good bar
+    }
+  }
+
+  // Backup method: the published CSV link
+  async function loadViaCSV() {
+    const res = await fetch(ANNOUNCEMENTS_CSV_URL, { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return rowsToAnnouncements(parseCSV(await res.text()));
+  }
+
+  async function loadAnnouncements() {
+    if (!ANNOUNCEMENTS_SHEET_ID && !ANNOUNCEMENTS_CSV_URL) {
+      announcements = SAMPLE_ANNOUNCEMENTS.filter(a => activeToday(a.start, a.end));
+      renderTicker();
+      return;
+    }
+    let next = null, errors = [];
+    if (ANNOUNCEMENTS_SHEET_ID) {
+      try { next = await loadViaSheetScript(); } catch (e) { errors.push("Sheet: " + e.message); }
+    }
+    if (next === null && ANNOUNCEMENTS_CSV_URL) {
+      try { next = await loadViaCSV(); } catch (e) { errors.push("CSV: " + e.message); }
+    }
+    if (next === null) {
+      // Keep showing the last good list if the sheet can't be reached
+      console.warn("Announcements could not be loaded.", errors.join(" | "));
+      return;
+    }
+    console.info("Announcements loaded:", next.length, "showing today");
+    if (JSON.stringify(next) !== JSON.stringify(announcements)) { announcements = next; renderTicker(); }
+  }
+
+  let resizeTimer;
+  window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(renderTicker, 250); });
+
+  // ================= Start =================
+  apply();
   setInterval(tick, 1000);
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(loadAnnouncements);
+  setInterval(loadAnnouncements, REFRESH_MINUTES * 60 * 1000);
+  if (!DEMO && PERIODS_TAB && ANNOUNCEMENTS_SHEET_ID) {
+    loadPeriodsFromSheet();
+    setInterval(loadPeriodsFromSheet, REFRESH_MINUTES * 60 * 1000);
+  }
 </script>
 </body>
 </html>
