@@ -131,25 +131,69 @@
   .stage { flex: 1 1 auto; position: relative; }
   .stage iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; }
 
-  /* Demo stand-in (preview only) */
-  .demo {
+  /* ---------- Built-in countdown ---------- */
+  /* Stage colors follow bell.plus timing: more than 15 min, 15 min or less, 5 or less, 2 or less */
+  .cd {
     position: absolute; inset: 0;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    background: #fff; color: #111;
-    text-align: center; gap: 1.5vh;
+    text-align: center; gap: 1.6vh;
+    background: var(--cd-bg); color: var(--cd-text);
+    transition: background .8s ease, color .8s ease;
+    overflow: hidden;
   }
-  .demo .period { font-size: clamp(22px, 4.5vh, 64px); font-weight: 600; }
-  .demo .count {
+  .cd[hidden] { display: none; }
+  .cd-name { font-size: clamp(24px, 5.2vh, 76px); font-weight: 700; letter-spacing: -.01em; color: var(--cd-sub); }
+  .cd-note {
+    font-size: clamp(14px, 2.4vh, 32px); font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--cd-sub); opacity: .75; margin-top: -.6vh;
+  }
+  .cd-note:empty { display: none; }
+  .cd-time {
     font-family: "JetBrains Mono", ui-monospace, monospace;
-    font-weight: 700; font-size: clamp(80px, 24vh, 340px); line-height: 1;
-    font-variant-numeric: tabular-nums;
+    font-weight: 700; font-size: clamp(90px, 27vh, 400px); line-height: 1;
+    font-variant-numeric: tabular-nums; letter-spacing: -.03em;
+    color: var(--cd-digits);
+    text-shadow: var(--cd-glow);
+    transition: color .8s ease, text-shadow .8s ease;
   }
-  .demo .next { font-size: clamp(16px, 2.6vh, 36px); color: #555; }
-  .demo .tag {
+  .cd-bar {
+    width: min(70vw, 1100px); height: clamp(8px, 1.3vh, 16px);
+    background: var(--cd-track); border-radius: 999px; overflow: hidden; margin-top: 1vh;
+  }
+  .cd-fill { height: 100%; width: 0; background: var(--cd-digits); border-radius: 999px; transition: width 1s linear, background .8s ease; }
+  .cd-sub { font-size: clamp(16px, 2.8vh, 40px); color: var(--cd-sub); opacity: .85; }
+  .cd-sub b { font-weight: 700; opacity: 1; }
+  .cd-tag {
     position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
-    font-size: 13px; color: #777; background: #f1f5f9; padding: 6px 12px; border-radius: 999px;
-    white-space: nowrap;
+    font-size: 13px; padding: 6px 12px; border-radius: 999px; white-space: nowrap;
+    background: rgba(127,127,127,.18); color: var(--cd-sub); opacity: .8;
   }
+
+  /* Gentle pulse in the last 2 minutes */
+  body.stage-2 .cd-time { animation: cdPulse 1s ease-in-out infinite; }
+  @keyframes cdPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.035); } }
+  @media (prefers-reduced-motion: reduce) { body.stage-2 .cd-time { animation: none; } }
+
+  /* Theme 1: Blues - Dark (bell.plus colors: black background, colored digits) */
+  body.theme-bluesdark { --cd-bg: #000; --cd-sub: #fff; --cd-track: #222; --cd-glow: none; }
+  body.theme-bluesdark.stage-calm { --cd-digits: #ccffff; }
+  body.theme-bluesdark.stage-15   { --cd-digits: #33ccff; }
+  body.theme-bluesdark.stage-5    { --cd-digits: #0066ff; }
+  body.theme-bluesdark.stage-2    { --cd-digits: #002db3; --cd-glow: 0 0 .06em #3b82f6; }  /* faint glow so the darkest blue still reads on black */
+
+  /* Theme 2: Sylmar Glow (navy, with a blue glow that brightens as the bell gets close) */
+  body.theme-glow { --cd-sub: #e2e8f0; --cd-track: rgba(255,255,255,.12); --cd-digits: #ffffff; }
+  body.theme-glow.stage-calm { --cd-bg: radial-gradient(ellipse at 50% 45%, #1b3370 0%, #0b1324 65%); --cd-glow: 0 0 .25em rgba(59,130,246,.35); }
+  body.theme-glow.stage-15   { --cd-bg: radial-gradient(ellipse at 50% 45%, #1d4ed8 0%, #0b1324 70%); --cd-glow: 0 0 .25em rgba(96,165,250,.55); }
+  body.theme-glow.stage-5    { --cd-bg: radial-gradient(ellipse at 50% 45%, #0284c7 0%, #0b1a3a 72%); --cd-glow: 0 0 .3em rgba(56,189,248,.75); }
+  body.theme-glow.stage-2    { --cd-bg: radial-gradient(ellipse at 50% 45%, #22d3ee 0%, #0c4a6e 55%, #0b1324 85%); --cd-glow: 0 0 .35em rgba(255,255,255,.9); }
+
+  /* Theme 3: Blues - Light (bell.plus colors as the background) */
+  body.theme-blueslight { --cd-glow: none; --cd-track: rgba(0,0,0,.15); }
+  body.theme-blueslight.stage-calm { --cd-bg: #ccffff; --cd-digits: #0b1324; --cd-sub: #0b1324; }
+  body.theme-blueslight.stage-15   { --cd-bg: #33ccff; --cd-digits: #0b1324; --cd-sub: #0b1324; }
+  body.theme-blueslight.stage-5    { --cd-bg: #0066ff; --cd-digits: #ffffff; --cd-sub: #ffffff; --cd-track: rgba(255,255,255,.25); }
+  body.theme-blueslight.stage-2    { --cd-bg: #002db3; --cd-digits: #ffffff; --cd-sub: #ffffff; --cd-track: rgba(255,255,255,.25); }
 
   /* ---------- Announcement ticker ---------- */
   .ticker {
@@ -275,8 +319,9 @@
     .options-btn { padding: 6px 10px; font-size: 13px; }
     .menu { min-width: 210px; }
     .date { white-space: nowrap; }
-    .demo .count { font-size: 24vw; }
-    .demo .tag { white-space: normal; width: 90%; text-align: center; }
+    .cd-time { font-size: 25vw; }
+    .cd-bar { width: 84vw; }
+    .cd-tag { white-space: normal; width: 90%; text-align: center; }
   }
   @media (max-width: 380px) {
     .date { display: none; }   /* very small phones: time and Options only */
@@ -304,6 +349,9 @@
           <button type="button" role="menuitem" id="mPos"><span>Clock position</span><span class="state" id="sPos"></span></button>
           <button type="button" role="menuitem" id="mPer"><span>Period bar</span><span class="state" id="sPer"></span></button>
           <button type="button" role="menuitem" id="mTick"><span>Announcements</span><span class="state" id="sTick"></span></button>
+          <hr>
+          <button type="button" role="menuitem" id="mTheme"><span>Countdown colors</span><span class="state" id="sTheme"></span></button>
+          <button type="button" role="menuitem" id="mSrc"><span>Countdown</span><span class="state" id="sSrc"></span></button>
           <hr>
           <button type="button" role="menuitem" id="mFs"><span id="fsLabel">Full screen</span><span class="state">&#x26F6;</span></button>
         </div>
@@ -368,7 +416,15 @@
 
   // ================= Saved preferences (per browser) =================
   // Defaults: seconds shown, larger clock, clock at top, announcements on
-  const prefs = { sec: true, compact: false, bottom: false, ticker: true, periods: true };
+  // Defaults for every board: seconds shown, larger clock, clock at top, ticker and period bar on,
+  // built-in countdown in Blues - Dark. Each board can change these in Options.
+  const THEMES = [
+    { id: "bluesdark",  name: "Blues - Dark" },
+    { id: "glow",       name: "Sylmar Glow" },
+    { id: "blueslight", name: "Blues - Light" }
+  ];
+  const DEFAULT_THEME = "bluesdark";
+  const prefs = { sec: true, compact: false, bottom: false, ticker: true, periods: true, theme: DEFAULT_THEME, builtin: true };
   try { Object.assign(prefs, JSON.parse(localStorage.getItem("bc-prefs") || "{}")); } catch (e) {}
   function save() { try { localStorage.setItem("bc-prefs", JSON.stringify(prefs)); } catch (e) {} }
 
@@ -391,7 +447,7 @@
       "<strong>" + d.toLocaleDateString(undefined, { weekday: "long" }) + "</strong>" +
       d.toLocaleDateString(undefined, { month: phoneMQ.matches ? "short" : "long", day: "numeric", year: "numeric" });
     updatePeriods(d);
-    if (DEMO) demoTick(d);
+    countdownTick(d);
   }
 
   // ================= Options menu =================
@@ -408,6 +464,11 @@
     document.getElementById("sTick").textContent = prefs.ticker ? "On" : "Off";
     document.body.classList.toggle("no-periods", !prefs.periods);
     document.getElementById("sPer").textContent = prefs.periods ? "On" : "Off";
+    if (!THEMES.some(t => t.id === prefs.theme)) prefs.theme = DEFAULT_THEME;
+    THEMES.forEach(t => document.body.classList.toggle("theme-" + t.id, t.id === prefs.theme));
+    document.getElementById("sTheme").textContent = THEMES.find(t => t.id === prefs.theme).name;
+    document.getElementById("sSrc").textContent = prefs.builtin ? "Built-in" : "bell.plus";
+    if (typeof chooseCountdown === "function") chooseCountdown();
     document.getElementById("fsLabel").textContent = document.fullscreenElement ? "Exit full screen" : "Full screen";
     tick();
   }
@@ -424,6 +485,11 @@
   document.getElementById("mSec").onclick  = () => { prefs.sec = !prefs.sec; save(); apply(); };
   document.getElementById("mSize").onclick = () => { prefs.compact = !prefs.compact; save(); apply(); };
   document.getElementById("mPos").onclick  = () => { prefs.bottom = !prefs.bottom; save(); apply(); };
+  document.getElementById("mTheme").onclick = () => {
+    const i = THEMES.findIndex(t => t.id === prefs.theme);
+    prefs.theme = THEMES[(i + 1) % THEMES.length].id; save(); apply();
+  };
+  document.getElementById("mSrc").onclick = () => { prefs.builtin = !prefs.builtin; save(); apply(); };
   document.getElementById("mPer").onclick = () => { prefs.periods = !prefs.periods; save(); apply(); };
   document.getElementById("mTick").onclick = () => { prefs.ticker = !prefs.ticker; save(); apply(); if (prefs.ticker) renderTicker(); };
   document.getElementById("mFs").onclick = async () => {
@@ -436,36 +502,90 @@
   document.addEventListener("fullscreenchange", apply);
 
   // ================= Countdown area =================
+  // Built-in countdown uses today's schedule from the "Bell Periods" tab (copied from bell.plus).
+  // If that isn't available for today, or a board picks "bell.plus" in Options, bell.plus is shown instead.
   const stage = document.getElementById("stage");
-  let demoEls = null;
+  stage.innerHTML =
+    '<div class="cd" id="cd" hidden>' +
+      '<div class="cd-name" id="cdName"></div>' +
+      '<div class="cd-note" id="cdNote"></div>' +
+      '<div class="cd-time" id="cdTime">--:--</div>' +
+      '<div class="cd-bar"><div class="cd-fill" id="cdFill"></div></div>' +
+      '<div class="cd-sub" id="cdSub"></div>' +
+      (DEMO ? '<div class="cd-tag">Sample schedule. The hosted page uses today\'s bell.plus schedule.</div>' : "") +
+    "</div>";
+  const cdEl = document.getElementById("cd");
+  const cd = { name: document.getElementById("cdName"), note: document.getElementById("cdNote"), time: document.getElementById("cdTime"),
+               fill: document.getElementById("cdFill"), sub: document.getElementById("cdSub") };
+  let segments = [];        // today's schedule: [{s, e, name, kind, label}] in minutes after midnight
+  let frame = null;
+  let scheduleChecked = false;   // wait for the first sheet check before falling back to bell.plus
 
-  if (DEMO) {
-    stage.innerHTML =
-      '<div class="demo">' +
-        '<div class="period" id="dPeriod">Period 3</div>' +
-        '<div class="count" id="dCount">--:--</div>' +
-        '<div class="next" id="dNext"></div>' +
-        '<div class="tag">Sample countdown. The hosted page loads your live bell.plus schedule here.</div>' +
-      "</div>";
-    demoEls = { period: document.getElementById("dPeriod"), count: document.getElementById("dCount"), next: document.getElementById("dNext") };
-  } else {
-    const f = document.createElement("iframe");
-    f.src = BELL_URL;
-    f.title = "Bell schedule countdown";
-    f.allow = "autoplay; fullscreen";
-    stage.appendChild(f);
+  function chooseCountdown() {
+    const useBuiltIn = (prefs.builtin && segments.length > 0) || (DEMO && segments.length > 0);
+    cdEl.hidden = !useBuiltIn;
+    if (useBuiltIn) {
+      if (frame) { frame.remove(); frame = null; }
+    } else if (!frame && !DEMO && (scheduleChecked || !PERIODS_TAB || !ANNOUNCEMENTS_SHEET_ID)) {
+      frame = document.createElement("iframe");
+      frame.src = BELL_URL;
+      frame.title = "Bell schedule countdown";
+      frame.allow = "autoplay; fullscreen";
+      stage.appendChild(frame);
+    }
   }
 
-  function demoTick(d) {   // sample only: counts down to the end of the current period in the list
-    const t = d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
-    const st = periodState(t);
-    const target = st.now != null ? periodList[st.now] : (st.next != null ? periodList[st.next] : null);
-    if (!target) { demoEls.period.textContent = "No class"; demoEls.count.textContent = "--:--"; demoEls.next.textContent = ""; return; }
-    const endMin = st.now != null ? target.e : target.s;
-    const left = Math.max(0, Math.round((endMin - t) * 60));
-    demoEls.period.textContent = st.now != null ? "Period " + target.label.replace(/^P/, "") : "Passing period";
-    demoEls.count.textContent = Math.floor(left / 60) + ":" + pad(left % 60);
-    demoEls.next.textContent = "Bell rings at " + fmt12(endMin);
+  function fmtLeft(sec) {
+    sec = Math.max(0, Math.ceil(sec));
+    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s2 = sec % 60;
+    return h > 0 ? h + ":" + pad(m) + ":" + pad(s2) : m + ":" + pad(s2);
+  }
+  function splitName(name) {          // "Period 2 (ATTENDANCE @ 32)" -> ["Period 2", "ATTENDANCE @ 32"]
+    const m = String(name).match(/^(.*?)\s*[\(\{]([^\)\}]*)[\)\}]\s*$/);
+    return m && m[1] ? [m[1], m[2]] : [name, ""];
+  }
+  let lastStage = "";
+  function setStage(st) {
+    if (st === lastStage) return;
+    ["calm", "15", "5", "2"].forEach(x => document.body.classList.toggle("stage-" + x, x === st));
+    lastStage = st;
+  }
+
+  function countdownTick(d) {
+    if (cdEl.hidden) return;
+    const t = d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60 + d.getMilliseconds() / 60000;
+    const first = segments[0], last = segments[segments.length - 1];
+    let seg = segments.find(x => t >= x.s && t < x.e), name, note = "", endMin, startMin, sub;
+    if (seg && seg.kind === "free") seg = null;   // "Free" at the end of the day = school's out
+    if (seg) {
+      [name, note] = splitName(seg.name);
+      endMin = seg.e; startMin = seg.s;
+      const nxt = segments.find(x => x.s >= seg.e && x.kind !== "passing" && x.kind !== "free");
+      sub = nxt ? "Bell at <b>" + fmt12(endMin) + "</b> · then " + esc(splitName(nxt.name)[0]) : "Ends at <b>" + fmt12(endMin) + "</b>";
+    } else if (t < first.s && first.kind !== "free") {
+      name = "School starts soon"; endMin = first.s; startMin = Math.max(0, first.s - 60);
+      sub = esc(splitName(first.name)[0]) + " begins at <b>" + fmt12(first.s) + "</b>";
+    } else {
+      name = "School's out"; endMin = null;
+    }
+    cd.name.textContent = name;
+    cd.note.textContent = note;
+    if (endMin == null) {
+      cd.time.textContent = "—"; cd.fill.style.width = "100%"; cd.sub.innerHTML = "See you tomorrow, Spartans"; setStage("calm"); return;
+    }
+    const leftSec = (endMin - t) * 60;
+    cd.time.textContent = fmtLeft(leftSec);
+    cd.sub.innerHTML = sub;
+    const total = Math.max(1, endMin - startMin);
+    cd.fill.style.width = Math.min(100, Math.max(0, ((t - startMin) / total) * 100)) + "%";
+    const leftMin = leftSec / 60;
+    setStage(leftMin <= 2 ? "2" : leftMin <= 5 ? "5" : leftMin <= 15 ? "15" : "calm");
+    document.title = fmtLeft(leftSec) + " | " + name;
+  }
+
+  function setSegments(list) {
+    segments = list.filter(x => !isNaN(x.s) && !isNaN(x.e) && x.e > x.s).sort((a, b) => a.s - b.s);
+    chooseCountdown();
   }
 
   // ================= Period bar =================
@@ -485,6 +605,17 @@
     min = ((Math.round(min) % 1440) + 1440) % 1440;
     const h = Math.floor(min / 60), m = min % 60;
     return (h % 12 || 12) + ":" + pad(m);
+  }
+
+  // Period bar boxes: class segments only; one period split into two entries becomes one box
+  function mergeClasses(segs) {
+    const out = [];
+    segs.filter(x => x.label).forEach(x => {
+      const prev = out[out.length - 1];
+      if (prev && prev.label === x.label && prev.e === x.s) prev.e = x.e;
+      else out.push({ label: x.label, s: x.s, e: x.e });
+    });
+    return out;
   }
 
   function setPeriods(list) {
@@ -525,14 +656,26 @@
   }
 
   if (DEMO) {
-    // Preview only: shift the sample times so the current time falls inside P3
+    // Preview only: a sample day shifted so "now" is 37 minutes into Period 3 (about 10 min left)
     const d = new Date();
     const t = d.getHours() * 60 + d.getMinutes();
-    const len = 45, gap = 7, p3start = t - 20;
-    setPeriods(["P1","P2","P3","P4","P5","P6"].map((label, i) => {
-      const s = p3start + (i - 2) * (len + gap);
-      return { label, s, e: s + len };
-    }));
+    const p3 = t - 37, len = 47, gap = 7;
+    const segs = [];
+    for (let i = 0; i < 6; i++) {
+      const s = p3 + (i - 2) * (len + gap) + (i >= 3 ? 30 : 0);   // lunch after P3
+      const n = i + 1;
+      segs.push({ s, e: s + len, name: "Period " + n + (n === 1 ? "" : " (ATTENDANCE @ 32)"), kind: "class", label: "P" + n });
+      if (i === 2) segs.push({ s: s + len, e: s + len + 30, name: "Lunch", kind: "break", label: "" });
+      if (i < 5) {
+        const ps = i === 2 ? s + len + 30 : s + len;
+        segs.push({ s: ps, e: ps + gap, name: "Passing to Period " + (n + 1), kind: "passing", label: "" });
+      }
+    }
+    // keep the sample lunch from overlapping: rebuild start times in order
+    segs.sort((a, b) => a.s - b.s);
+    for (let i = 1; i < segs.length; i++) { const dur = segs[i].e - segs[i].s; segs[i].s = segs[i - 1].e; segs[i].e = segs[i].s + dur; }
+    setSegments(segs);
+    setPeriods(mergeClasses(segs));
   } else {
     if (!PERIODS_TAB || !ANNOUNCEMENTS_SHEET_ID) setPeriods(PERIODS);
   }
@@ -653,20 +796,29 @@
     try {
       const [header, ...rows] = await loadSheetTab(PERIODS_TAB);
       const h = header.map(x => x.toLowerCase());
-      const iDate = h.indexOf("date"), iLabel = h.indexOf("label"), iStart = h.indexOf("start"), iEnd = h.indexOf("end"), iSched = h.indexOf("schedule");
+      const col = n => h.indexOf(n);
+      const iDate = col("date"), iLabel = col("label"), iStart = col("start"), iEnd = col("end"), iName = col("name"), iKind = col("kind"), iSched = col("schedule");
       const d = new Date();
       const todayKey = pad(d.getMonth() + 1) + "/" + pad(d.getDate()) + "/" + d.getFullYear();
-      // Only use rows written for today, so a stopped script never shows yesterday's periods
-      const list = rows
-        .filter(r => (r[iDate] || "").trim() === todayKey && (r[iLabel] || "").trim())
-        .map(r => ({ label: r[iLabel].trim(), start: r[iStart], end: r[iEnd] }));
-      const key = JSON.stringify(list);
-      if (key !== periodsKey) { periodsKey = key; setPeriods(list); }
+      // Only use rows written for today, so a stopped script never shows yesterday's schedule
+      const todays = rows.filter(r => (r[iDate] || "").trim() === todayKey && (r[iStart] || "").trim());
+      const segs = todays.map(r => ({
+        s: toMin(r[iStart]), e: toMin(r[iEnd]),
+        name: (r[iName] || "").trim(), kind: iKind >= 0 ? (r[iKind] || "").trim() : ((r[iLabel] || "").trim() ? "class" : ""),
+        label: (r[iLabel] || "").trim()
+      }));
+      const key = JSON.stringify(segs);
+      if (key !== periodsKey) {
+        periodsKey = key;
+        setSegments(iKind >= 0 ? segs : []);          // older sheet script (no Kind column): keep bell.plus countdown
+        setPeriods(mergeClasses(segs));
+      }
       const sched = rows.length && iSched >= 0 ? rows[0][iSched] : "";
-      console.info("Periods loaded:", list.length, sched ? "(" + sched + ")" : "", rows.length && rows[0][iDate] !== todayKey ? "- sheet is not updated for today yet" : "");
+      console.info("Schedule loaded:", segs.length, "segments", sched ? "(" + sched + ")" : "", rows.length && rows[0][iDate] !== todayKey ? "- sheet is not updated for today yet" : "");
     } catch (e) {
-      console.warn("Periods could not be loaded:", e.message);   // keep the last good bar
+      console.warn("Schedule could not be loaded:", e.message);   // keep the last good data
     }
+    if (!scheduleChecked) { scheduleChecked = true; chooseCountdown(); }
   }
 
   // Backup method: the published CSV link
