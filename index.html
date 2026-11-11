@@ -270,6 +270,9 @@
   }
   .menu .mealrow .seg button:hover { background: rgba(56,189,248,.2); }
 
+  .cd-time.text { font-family: Inter, system-ui, sans-serif; font-size: clamp(48px, 14vh, 200px); letter-spacing: -.02em; }
+  body.off-day .periods { display: none; }
+
   /* Gentle pulse in the last 2 minutes */
   body.stage-2 .cd-time { animation: cdPulse 1s ease-in-out infinite; }
   @keyframes cdPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.035); } }
@@ -433,6 +436,7 @@
     .menu { min-width: 210px; }
     .date { white-space: nowrap; }
     .cd-time { font-size: 25vw; }
+    .cd-time.text { font-size: 13vw; }
     .cd-bar { width: 84vw; }
     .cd-tag { white-space: normal; width: 90%; text-align: center; }
     /* Meal view on phones: three compact cards stacked vertically, scrollable by touch */
@@ -538,7 +542,7 @@
   // ================= Settings =================
   const BELL_URL = "https://bell.plus/128944";   // your existing schedule link
   const DEMO = false;                             // true = sample countdown instead of bell.plus
-  const DEMO_SCENE = "lunch";                      // mockups only: "bic", "class", "lunch" or "supper"
+  const DEMO_SCENE = "lunch";                      // mockups only: "bic", "class", "lunch", "supper", "out" or "off"
 
   // ---- Announcements source: Google Sheet ----
   // Main method: the sheet's ID (from its normal edit link, between /d/ and /edit).
@@ -569,7 +573,13 @@
   ];
 
   // Sources shown as an emoji instead of a text tag (Source column, any capitalization)
-  const SOURCE_ICONS = { "magnet": "\u{1F9F2}", "office": "\u{1F3EB}" };   // 🧲 🏫
+  const SOURCE_ICONS = { "magnet": "\u{1F9F2}", "office": "\u{1F3EB}", "calendar": "\u{1F4C5}" };   // 🧲 🏫 📅
+
+  // ---- Official school calendar (Sylmar Charter High School Google Calendar, copied by the sheet script) ----
+  // "School Days": which days are school days, with the reason for days off (holidays, breaks).
+  // "Daily Schedule": today's calendar items, mixed into the ticker between announcements.
+  const SCHOOL_DAYS_TAB = "School Days";
+  const DAILY_TAB = "Daily Schedule";
 
   // ---- Food menus (from Yumyummi / LAUSD Cafe LA, copied by the sheet script) ----
   // BIC (Breakfast in the Classroom): the hour before Period 1
@@ -619,6 +629,8 @@
     { id: "blueslight", name: "Blues - Light" }
   ];
   const DEFAULT_THEME = "bluesdark";
+  let schoolDays = {};     // "MM/DD/YYYY" -> { school: true/false, reason }
+  let dailyItems = [];     // today's calendar items for the ticker: [{ time, title, where }]
   const prefs = { sec: true, compact: false, bottom: false, ticker: true, periods: true, food: true, theme: DEFAULT_THEME, builtin: true };
   try { Object.assign(prefs, JSON.parse(localStorage.getItem("bc-prefs") || "{}")); } catch (e) {}
   function save() { try { localStorage.setItem("bc-prefs", JSON.stringify(prefs)); } catch (e) {} }
@@ -724,8 +736,69 @@
   let frame = null;
   let scheduleChecked = false;   // wait for the first sheet check before falling back to bell.plus
 
+  // ---- School days, days off and "see you back" messages ----
+  const dayKey = d => pad(d.getMonth() + 1) + "/" + pad(d.getDate()) + "/" + d.getFullYear();
+  const addDays = (d, n) => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); return x; };
+  const isWeekend = d => d.getDay() === 0 || d.getDay() === 6;
+  const cleanOff = r => String(r || "").replace(/^\s*no school\s*[-–:]*\s*/i, "").trim();
+  function isSchoolDay(d) {
+    const sd = schoolDays[dayKey(d)];
+    return sd ? sd.school : !isWeekend(d);           // no data: weekdays count as school days
+  }
+  function offTodayInfo() {
+    if (!Object.keys(schoolDays).length) return null;  // calendar not loaded: never guess
+    const d = new Date();
+    if (isSchoolDay(d)) return null;
+    const sd = schoolDays[dayKey(d)];
+    return { reason: isWeekend(d) ? "Weekend" : cleanOff(sd && sd.reason) || "No School" };
+  }
+  // Next school day after today, plus the reasons for any weekday days off in between
+  function nextSchoolDay() {
+    const today = new Date(), offs = [];
+    for (let i = 1; i <= 120; i++) {
+      const d = addDays(today, i);
+      if (isSchoolDay(d)) return { date: d, days: i, offs };
+      if (!isWeekend(d)) offs.push({ date: d, reason: (schoolDays[dayKey(d)] || {}).reason || "" });
+    }
+    return null;
+  }
+  function breakLabel(offs) {
+    const all = offs.map(o => o.reason).join(" | ");
+    if (/thanksgiving/i.test(all)) return { kind: "break", name: "Thanksgiving Break" };
+    if (/winter|christmas|new year/i.test(all)) return { kind: "break", name: "Winter Break" };
+    if (/spring/i.test(all)) return { kind: "break", name: "Spring Break" };
+    const names = [...new Set(offs.map(o => cleanOff(o.reason)).filter(n => n && !/unassigned|pupil[- ]free|no school/i.test(n)))];
+    if (names.length === 1) return { kind: "holiday", name: names[0] };
+    return offs.length ? { kind: "generic" } : null;
+  }
+  // context "after": after the last bell on a school day; "off": on a day with no school
+  function backMessage(context) {
+    const nx = nextSchoolDay();
+    if (!nx) return "See you soon, Spartans";
+    const when = nx.date.toLocaleDateString(undefined, { weekday: "long" }) + ", " + (nx.date.getMonth() + 1) + "/" + nx.date.getDate();
+    const lbl = breakLabel(nx.offs);
+    if (context === "after" && nx.days === 1) return "See you tomorrow, Spartans";
+    if (!lbl) return (context === "after" ? "Have a great weekend! " : "") + "See you back <b>" + when + "</b>";
+    if (lbl.kind === "break") return "Happy " + esc(lbl.name) + "! See you back <b>" + when + "</b>";
+    const first = nx.offs[0].date;
+    const firstWord = context === "after" && dayKey(first) === dayKey(addDays(new Date(), 1)) ? "tomorrow" : first.toLocaleDateString(undefined, { weekday: "long" });
+    if (lbl.kind === "holiday") return "No school " + firstWord + " for " + esc(lbl.name) + ". See you back <b>" + when + "</b>!";
+    return "No school " + firstWord + ". See you back <b>" + when + "</b>";
+  }
+  // Ticker note on the last school day before days off, e.g. "No school tomorrow: Veteran's Day"
+  function tomorrowNotice() {
+    if (offTodayInfo()) return null;
+    const nx = nextSchoolDay();
+    if (!nx || !nx.offs.length) return null;
+    const lbl = breakLabel(nx.offs);
+    const first = nx.offs[0].date;
+    const word = dayKey(first) === dayKey(addDays(new Date(), 1)) ? "tomorrow" : first.toLocaleDateString(undefined, { weekday: "long" });
+    const back = nx.date.toLocaleDateString(undefined, { weekday: "short" }) + " " + (nx.date.getMonth() + 1) + "/" + nx.date.getDate();
+    return "No school " + word + (lbl && lbl.name ? ": " + lbl.name : "") + " · back " + back;
+  }
+
   function chooseCountdown() {
-    const useBuiltIn = (prefs.builtin && segments.length > 0) || (DEMO && segments.length > 0) ||
+    const useBuiltIn = (prefs.builtin && (segments.length > 0 || !!offTodayInfo())) || (DEMO && segments.length > 0) ||
                        (typeof previewMeal !== "undefined" && !!previewMeal);
     cdEl.hidden = !useBuiltIn;
     if (useBuiltIn) {
@@ -756,7 +829,23 @@
   }
 
   function countdownTick(d) {
+    const off = offTodayInfo();
+    document.body.classList.toggle("off-day", !!off);
     if (cdEl.hidden) return;
+    if (off && !previewMeal) {                 // holiday, break or weekend: no countdown, show when we're back
+      showMeal(null);
+      const nx = nextSchoolDay();
+      cd.name.textContent = "No School Today";
+      cd.note.textContent = off.reason === "Weekend" ? "" : off.reason;
+      cd.time.classList.add("text");
+      cd.time.textContent = nx ? "Back " + nx.date.toLocaleDateString(undefined, { weekday: "short" }) + " " + (nx.date.getMonth() + 1) + "/" + nx.date.getDate() : "\u2014";
+      cd.sub.innerHTML = backMessage("off");
+      cd.fill.style.width = "0%";
+      setStage("calm");
+      document.title = "No School Today";
+      return;
+    }
+    cd.time.classList.remove("text");
     const t = d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60 + d.getMilliseconds() / 60000;
     if (!segments.length && !previewMeal) return;
     const first = segments[0], last = segments[segments.length - 1];
@@ -781,7 +870,7 @@
     if (previewMeal) {
       meal = previewMeal; mealText = "Today's menu";
       mealSub = "Preview · closes in " + Math.max(0, Math.ceil((previewUntil - Date.now()) / 1000)) + "s";
-    } else if (prefs.food && classes.length) {
+    } else if (prefs.food && classes.length && !off) {
       const firstS = classes[0].s, lastE = classes[classes.length - 1].e;
       if (seg && /\blunch\b/i.test(seg.name)) {
         meal = "Lunch"; mealLeft = (endMin - t) * 60; mealSub = sub.replace(" · then ", "<br>then ");
@@ -809,7 +898,12 @@
     cd.name.textContent = name;
     cd.note.textContent = note;
     if (endMin == null) {
-      cd.time.textContent = "—"; cd.fill.style.width = "100%"; cd.sub.innerHTML = "See you tomorrow, Spartans"; setStage("calm"); return;
+      const nxo = nextSchoolDay();
+      if (nxo && nxo.days > 1 && Object.keys(schoolDays).length) {      // weekend or days off ahead: show when we're back
+        cd.time.classList.add("text");
+        cd.time.textContent = "Back " + nxo.date.toLocaleDateString(undefined, { weekday: "short" }) + " " + (nxo.date.getMonth() + 1) + "/" + nxo.date.getDate();
+      } else cd.time.textContent = "\u2014";
+      cd.fill.style.width = "100%"; cd.sub.innerHTML = backMessage("after"); setStage("calm"); return;
     }
     const leftSec = (endMin - t) * 60;
     cd.time.textContent = fmtLeft(leftSec);
@@ -1072,13 +1166,34 @@
     // Mockup scene: where "now" falls in the sample day
     const firstC = segs.find(x => x.kind === "class"), lastC = segs.filter(x => x.kind === "class").pop();
     const ln = segs.find(x => /lunch/i.test(x.name));
-    const anchor = DEMO_SCENE === "bic" ? firstC.s - 22 : DEMO_SCENE === "supper" ? lastC.e + 12 : DEMO_SCENE === "class" ? firstC.s + 20 : ln.s + 8;
+    const anchor = DEMO_SCENE === "bic" ? firstC.s - 22 : DEMO_SCENE === "supper" ? lastC.e + 12 : DEMO_SCENE === "class" ? firstC.s + 20 :
+                   DEMO_SCENE === "out" ? lastC.e + 285 : ln.s + 8;
     const shift = t - anchor;
     segs.forEach(x => { x.s += shift; x.e += shift; });
     const lastEnd = lastC.e;
     segs.push({ s: lastEnd, e: lastEnd + 270, name: "EDUCARE (Chairs up on Thursday!)", kind: "break", label: "" });
     setSegments(segs);
     setPeriods(mergeClasses(segs));
+    // Sample school calendar: tomorrow is Veteran's Day (no school). Scene "off" = today is a holiday
+    // in the middle of Thanksgiving week, back the following Monday.
+    {
+      const base = new Date();
+      const mark = (n, school, reason) => { schoolDays[dayKey(addDays(base, n))] = { school, reason }; };
+      for (let i = -3; i <= 14; i++) { const d = addDays(base, i); mark(i, !isWeekend(d), isWeekend(d) ? "Weekend" : ""); }
+      if (DEMO_SCENE === "off") {
+        let i = 0, n = 0;
+        while (n < 5 && i < 14) { if (!isWeekend(addDays(base, i))) { mark(i, false, n < 3 ? "No School- Unassigned Day" : "Thanksgiving Holiday"); n++; } i++; }
+      } else {
+        let i = 1; while (isWeekend(addDays(base, i))) i++;
+        mark(i, false, "No School- Veteran's Day");
+      }
+      dailyItems = [
+        { time: "", title: "Movember Presentations (Day 2/2)", where: "" },
+        { time: "", title: "Blood Drive - Biotech", where: "Small Gym" },
+        { time: "2:30", title: "Professional Development", where: "" },
+        { time: "3:30", title: "Faculty Meeting", where: "Spartan Hall" }
+      ];
+    }
     // Today's real SCHS Athletics Calendar (Nov 10, 2026), as the sheet script copies it
     sportsEvents = [
       { s: 6 * 60 + 30, e: 8 * 60, title: "Baseball - Weightroom Educare", where: "Weightroom" },
@@ -1177,13 +1292,28 @@
     return '<span class="item">' + badge + "<span>" + esc(a.message) + "</span></span>";
   }
 
+  // Announcements with today's school-calendar items in between: A1, C1, A2, C2, ...
+  function tickerItems() {
+    const cal = [];
+    const notice = tomorrowNotice();
+    if (notice) cal.push({ message: notice, source: "Calendar" });
+    dailyItems.forEach(x => cal.push({ message: (x.time ? x.time + " " : "") + x.title + (x.where ? " \u00b7 " + x.where : ""), source: "Calendar" }));
+    const out = [];
+    for (let i = 0; i < Math.max(announcements.length, cal.length); i++) {
+      if (i < announcements.length) out.push(announcements[i]);
+      if (i < cal.length) out.push(cal[i]);
+    }
+    return out;
+  }
+
   function renderTicker() {
-    if (!announcements.length) { tickerEl.classList.add("empty"); runEl.innerHTML = ""; loopW = 0; return; }
+    const items = tickerItems();
+    if (!items.length) { tickerEl.classList.add("empty"); runEl.innerHTML = ""; loopW = 0; return; }
     tickerEl.classList.remove("empty");
     if (!prefs.ticker) return;
 
     // Build one "set", repeat it until it's wider than the track, then double it for a seamless loop
-    const one = announcements.map(itemHTML).join("");
+    const one = items.map(itemHTML).join("");
     runEl.innerHTML = one;
     const trackW = runEl.parentElement.clientWidth || window.innerWidth;
     let set = one, guard = 0;
@@ -1339,6 +1469,31 @@
     return rowsToAnnouncements(parseCSV(await res.text()));
   }
 
+  const OFF_RE = /\bno school\b|\b(holiday|recess)\s*$|\b(winter|spring|thanksgiving|summer)\s+break\b/i;
+  async function loadSchoolCalendar() {
+    try {
+      const [h1, ...dayRows] = await loadSheetTab(SCHOOL_DAYS_TAB);
+      const c1 = n => h1.map(x => x.toLowerCase()).indexOf(n);
+      const days = {};
+      dayRows.forEach(r => {
+        const k = (r[c1("date")] || "").trim(); if (!k) return;
+        days[k] = { school: /^(yes|true)$/i.test((r[c1("school")] || "").trim()), reason: (r[c1("reason")] || "").trim() };
+      });
+      const [h2, ...evRows] = await loadSheetTab(DAILY_TAB);
+      const c2 = n => h2.map(x => x.toLowerCase()).indexOf(n);
+      const today = dayKey(new Date());
+      const items = evRows.filter(r => (r[c2("date")] || "").trim() === today && (r[c2("title")] || "").trim() && !OFF_RE.test(r[c2("title")]))
+        .map(r => { const st = (r[c2("start")] || "").trim(); return { sort: st ? toMin(st) : -1, time: st ? fmt12(toMin(st)) : "", title: r[c2("title")].trim(), where: (r[c2("location")] || "").trim() }; })
+        .sort((a, b) => a.sort - b.sort).map(({ time, title, where }) => ({ time, title, where }));
+      const changed = JSON.stringify(days) !== JSON.stringify(schoolDays) || JSON.stringify(items) !== JSON.stringify(dailyItems);
+      schoolDays = days; dailyItems = items;
+      if (changed) { chooseCountdown(); renderTicker(); }
+      console.info("School calendar loaded:", Object.keys(days).length, "days,", items.length, "items today");
+    } catch (e) {
+      console.warn("School calendar could not be loaded:", e.message);
+    }
+  }
+
   async function loadAnnouncements() {
     if (!ANNOUNCEMENTS_SHEET_ID && !ANNOUNCEMENTS_CSV_URL) {
       announcements = SAMPLE_ANNOUNCEMENTS.filter(a => activeToday(a.start, a.end));
@@ -1374,6 +1529,7 @@
     setInterval(loadPeriodsFromSheet, REFRESH_MINUTES * 60 * 1000);
     if (FOOD_TAB) { loadFoodFromSheet(); setInterval(loadFoodFromSheet, 30 * 60 * 1000); }
     if (SPORTS_TAB) { loadSportsFromSheet(); setInterval(loadSportsFromSheet, 30 * 60 * 1000); }
+    if (SCHOOL_DAYS_TAB) { loadSchoolCalendar(); setInterval(loadSchoolCalendar, 30 * 60 * 1000); }
   }
 </script>
 </body>
