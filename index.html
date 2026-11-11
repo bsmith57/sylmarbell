@@ -412,7 +412,16 @@
 
   /* ---------- Phones (narrow screens): clock + countdown only ---------- */
   @media (max-width: 700px) {
-    .periods, .ticker, #mPer, #mTick { display: none !important; }
+    .periods, #mPer { display: none !important; }
+    /* Ticker on phones: "Announcements" label on its own line, scrolling text full width below */
+    .ticker { flex-direction: column; height: auto; }
+    .ticker-tag { padding: 4px 12px; font-size: 11px; letter-spacing: .14em; justify-content: flex-start; }
+    .ticker-tag::after { display: none; }
+    .ticker-track { flex: 0 0 auto; height: 40px;
+      -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+              mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%); }
+    .ticker-run { padding-left: 12px; }
+    .item { font-size: 17px; }
     .clockbar { padding: 10px 14px; gap: 10px; }
     .now { gap: 8px; }
     .label { display: none; }
