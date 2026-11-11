@@ -425,8 +425,56 @@
     .cd-time { font-size: 25vw; }
     .cd-bar { width: 84vw; }
     .cd-tag { white-space: normal; width: 90%; text-align: center; }
-    .lunch { display: none !important; }   /* phones keep the plain countdown */
+    /* Meal view on phones: three compact cards stacked vertically, scrollable by touch */
+    .lunch { overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; overscroll-behavior: contain; }
+    .ln-top { flex-wrap: wrap; gap: 6px 12px; padding: 10px 12px 8px; }
+    .ln-tag { font-size: 13px; }
+    .ln-left { font-size: 40px; }
+    .ln-left.text { font-size: 28px; }
+    .ln-sub { font-size: 13px; }
+    .ln-close { font-size: 12px; margin-left: 0; }
+    .ln-panels { display: flex; flex-direction: column; gap: 10px; padding: 0 12px 16px; flex: 0 0 auto; min-height: auto; }
+    .ln-panel { flex-direction: row; flex: 0 0 auto; min-height: 0; border-radius: 12px; }
+    .ln-photo { flex: 0 0 32%; min-height: 112px; }
+    .ln-photo.logo img { padding: 8%; }
+    .ln-info { flex: 1 1 auto; min-width: 0; padding: 10px 12px; gap: 7px; justify-content: center; }
+    .ln-name { font-size: 16px; min-height: 0; -webkit-line-clamp: 2; }
+    .ln-macros { gap: 5px; }
+    .ln-m { padding: 5px 2px; border-radius: 8px; }
+    .ln-m .v { font-size: 17px; }
+    .ln-m .k { font-size: 9px; letter-spacing: .05em; margin-top: 1px; }
+    .ln-split { height: 5px; }
+    .ln-legend, .ln-rank, .ln-diet { display: none; }
+    .ln-sports { flex: 0 0 auto; padding: 12px; gap: 8px; border-radius: 12px; }
+    .sp-logo { height: 54px; }
+    .sp-tag { font-size: 18px; }
+    .sp-list { overflow: visible; gap: 6px; margin-top: 2px; }
+    .sp-row { padding: 6px 8px; gap: 10px; }
+    .sp-time { font-size: 13px; }
+    .sp-title { font-size: 14px; }
+    .sp-where { font-size: 11px; }
+    .ln-empty { padding: 24px 0; font-size: 16px; }
   }
+  /* Phones held sideways (short screens): drop the photo labels and the Spartan logo, and let the
+     sports list scroll by touch */
+  @media (max-height: 500px) and (min-width: 701px) {
+    .ln-rank, .ln-diet, .ln-legend, .sp-logo { display: none; }
+    .ln-top { padding: 6px 2vw 4px; }
+    .ln-panels { padding-bottom: 8px; gap: 1.4vw; }
+    .ln-info { padding: 6px 10px 8px; gap: 5px; }
+    .ln-name { font-size: 15px; min-height: 2.3em; }
+    .ln-m { padding: 3px 2px; }
+    .ln-m .v { font-size: 15px; }
+    .ln-m .k { font-size: 8px; letter-spacing: .04em; }
+    .ln-sports { padding: 8px 8px 6px; gap: 6px; }
+    .sp-tag { font-size: 15px; }
+    .sp-list { overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; overscroll-behavior: contain; }
+    .sp-row { flex: 0 0 auto; padding: 4px 6px; }
+    .sp-time { font-size: 12px; }
+    .sp-title { font-size: 13px; }
+    .sp-where { font-size: 10px; }
+  }
+
   @media (max-width: 380px) {
     .date { display: none; }   /* very small phones: time and Options only */
   }
