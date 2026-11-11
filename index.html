@@ -263,6 +263,25 @@
   body.compact .date { font-size: clamp(13px, 1.8vh, 26px); }
   body.compact .pbox { font-size: clamp(12px, 2vh, 28px); min-height: clamp(28px, 4vh, 54px); }
 
+  /* ---------- Phones (narrow screens): clock + countdown only ---------- */
+  @media (max-width: 700px) {
+    .periods, .ticker, #mPer, #mTick { display: none !important; }
+    .clockbar { padding: 10px 14px; gap: 10px; }
+    .now { gap: 8px; }
+    .label { display: none; }
+    .time, body.compact .time { font-size: clamp(30px, 11vw, 56px); }
+    .right { gap: 10px; }
+    .date, body.compact .date { font-size: 13px; line-height: 1.25; }
+    .options-btn { padding: 6px 10px; font-size: 13px; }
+    .menu { min-width: 210px; }
+    .date { white-space: nowrap; }
+    .demo .count { font-size: 24vw; }
+    .demo .tag { white-space: normal; width: 90%; text-align: center; }
+  }
+  @media (max-width: 380px) {
+    .date { display: none; }   /* very small phones: time and Options only */
+  }
+
   @media (prefers-reduced-motion: reduce) { .ticker-run { animation-duration: 0s !important; } }
 </style>
 </head>
@@ -357,6 +376,7 @@
   const timeEl = document.getElementById("time");
   const dateEl = document.getElementById("date");
   function pad(n) { return String(n).padStart(2, "0"); }
+  const phoneMQ = window.matchMedia("(max-width: 700px)");   // phone layout: no period bar or ticker
 
   function tick() {
     const d = new Date();
@@ -369,7 +389,7 @@
       '<span class="ampm">' + ampm + "</span>";
     dateEl.innerHTML =
       "<strong>" + d.toLocaleDateString(undefined, { weekday: "long" }) + "</strong>" +
-      d.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
+      d.toLocaleDateString(undefined, { month: phoneMQ.matches ? "short" : "long", day: "numeric", year: "numeric" });
     updatePeriods(d);
     if (DEMO) demoTick(d);
   }
